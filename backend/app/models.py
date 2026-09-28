@@ -10,6 +10,33 @@ def get_datetime_utc() -> datetime:
     return datetime.now(UTC)
 
 
+class RunBase(SQLModel):
+    agent_id: str = Field(max_length=255)
+    session_id: str = Field(max_length=255)
+    input: str = Field(min_length=1, max_length=2000)
+
+
+class RunCreate(RunBase):
+    pass
+
+
+class Run(RunBase, table=True):
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+    )
+    status: str = Field(default="queued", max_length=32)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),
+    )
+
+
+class RunPublic(RunBase):
+    id: uuid.UUID
+    status: str
+    created_at: datetime | None = None
+
 # Shared properties
 class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
