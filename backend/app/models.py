@@ -25,6 +25,11 @@ class Run(RunBase, table=True):
         default_factory=uuid.uuid4,
         primary_key=True,
     )
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id",
+        nullable=False,
+        index=True,
+    )
     status: str = Field(default="queued", max_length=32)
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,

@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, CurrentUser
 from app.models import Run, RunCreate, RunPublic
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -16,8 +16,12 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 def create_run(
     body: RunCreate,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> Run:
-    db_run = Run.model_validate(body)
+    db_run = Run.model_validate(
+         body,
+         update={"owner_id": current_user.id},
+    )
 
     session.add(db_run)
     session.commit()
@@ -33,10 +37,11 @@ def create_run(
 def get_run(
     run_id: uuid.UUID,
     session: SessionDep,
+    current_user: CurrentUser,
 ) -> Run:
     run = session.get(Run, run_id)
 
-    if not run:
+    if not run or run.owner_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Run not found",
