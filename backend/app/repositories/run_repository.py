@@ -1,8 +1,8 @@
 import uuid
 
-from sqlmodel import Session
-
+from sqlmodel import Session, select
 from app.models import Run, RunCreate
+from sqlalchemy.exc import IntegrityError
 
 
 def create_run(
@@ -10,14 +10,36 @@ def create_run(
     session: Session,
     run_in: RunCreate,
     owner_id: uuid.UUID,
+    idempotency_key: str | None = None,
 ) -> Run:
     db_run = Run.model_validate(
         run_in,
-        update={"owner_id": owner_id},
+        update={
+            "owner_id": owner_id,
+            "idempotency_key": idempotency_key,
+        },
     )
 
     session.add(db_run)
-    session.commit()
+
+    try:
+        session.commit()
+
+    except IntegrityError:
+        session.rollback()
+
+        if idempotency_key:
+            existing_run = get_run_by_idempotency_key(
+                session=session,
+                owner_id=owner_id,
+                idempotency_key=idempotency_key,
+            )
+
+            if existing_run:
+                return existing_run
+
+        raise
+
     session.refresh(db_run)
 
     return db_run
@@ -29,3 +51,17 @@ def get_run_by_id(
     run_id: uuid.UUID,
 ) -> Run | None:
     return session.get(Run, run_id)
+
+
+def get_run_by_idempotency_key(
+    *,
+    session: Session,
+    owner_id: uuid.UUID,
+    idempotency_key: str,
+) -> Run | None:
+    statement = select(Run).where(
+        Run.owner_id == owner_id,
+        Run.idempotency_key == idempotency_key,
+    )
+
+    return session.exec(statement).first()

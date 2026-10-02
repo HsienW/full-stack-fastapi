@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -21,16 +21,35 @@ class RunCreate(RunBase):
 
 
 class Run(RunBase, table=True):
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "idempotency_key",
+            name="uq_run_owner_idempotency_key",
+        ),
+    )
+
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4,
         primary_key=True,
     )
+
+    status: str = Field(
+        default="queued",
+        max_length=32,
+    )
+
     owner_id: uuid.UUID = Field(
         foreign_key="user.id",
         nullable=False,
         index=True,
     )
-    status: str = Field(default="queued", max_length=32)
+
+    idempotency_key: str | None = Field(
+        default=None,
+        max_length=255,
+    )
+
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),

@@ -1,10 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
-
+from fastapi import APIRouter, HTTPException, status, Header
 from app.api.deps import CurrentUser, SessionDep
 from app.models import RunCreate, RunPublic
 from app.services import run_service
+from typing import Annotated
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -18,11 +18,16 @@ def create_run(
     body: RunCreate,
     session: SessionDep,
     current_user: CurrentUser,
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key"),
+    ] = None,
 ):
     return run_service.create_run(
         session=session,
         run_in=body,
         owner_id=current_user.id,
+        idempotency_key=idempotency_key,
     )
 
 
