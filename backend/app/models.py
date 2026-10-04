@@ -43,6 +43,7 @@ class Run(RunBase, table=True):
         foreign_key="user.id",
         nullable=False,
         index=True,
+        ondelete="CASCADE",
     )
 
     idempotency_key: str | None = Field(

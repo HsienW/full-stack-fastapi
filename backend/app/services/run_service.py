@@ -63,10 +63,10 @@ def get_run_for_user(
 
     result = RunPublic.model_validate(run)
 
-    redis_client.setex(
+    redis_client.set(
         cache_key,
-        RUN_CACHE_TTL_SECONDS,
         result.model_dump_json(),
+        ex=RUN_CACHE_TTL_SECONDS,
     )
 
     return result
