@@ -65,3 +65,23 @@ def get_run_by_idempotency_key(
     )
 
     return session.exec(statement).first()
+
+
+def update_run_status(
+    *,
+    session: Session,
+    run_id: uuid.UUID,
+    status: str,
+) -> Run | None:
+    run = session.get(Run, run_id)
+
+    if not run:
+        return None
+
+    run.status = status
+
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    return run

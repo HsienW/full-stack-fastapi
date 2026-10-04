@@ -1,10 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, status, Header
+from fastapi import APIRouter, HTTPException, status, Header, BackgroundTasks
 from app.api.deps import CurrentUser, SessionDep
 from app.models import RunCreate, RunPublic
-from app.services import run_service
+from app.services import run_service, run_executor
 from typing import Annotated
+
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -12,23 +13,26 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 @router.post(
     "",
     response_model=RunPublic,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_202_ACCEPTED,
 )
-def create_run(
+async def create_run(
     body: RunCreate,
+    background_tasks: BackgroundTasks,
     session: SessionDep,
     current_user: CurrentUser,
-    idempotency_key: Annotated[
-        str | None,
-        Header(alias="Idempotency-Key"),
-    ] = None,
 ):
-    return run_service.create_run(
+    run = run_service.create_run(
         session=session,
         run_in=body,
         owner_id=current_user.id,
-        idempotency_key=idempotency_key,
     )
+
+    background_tasks.add_task(
+        run_executor.execute_run,
+        run.id,
+    )
+
+    return run
 
 
 @router.get(
