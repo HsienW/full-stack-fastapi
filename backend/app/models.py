@@ -2,13 +2,65 @@ import uuid
 from datetime import UTC, datetime
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
 def get_datetime_utc() -> datetime:
     return datetime.now(UTC)
 
+
+class RunBase(SQLModel):
+    agent_id: str = Field(max_length=255)
+    session_id: str = Field(max_length=255)
+    input: str = Field(min_length=1, max_length=2000)
+
+
+class RunCreate(RunBase):
+    pass
+
+
+class Run(RunBase, table=True):
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "idempotency_key",
+            name="uq_run_owner_idempotency_key",
+        ),
+    )
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+    )
+
+    status: str = Field(
+        default="queued",
+        max_length=32,
+    )
+
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id",
+        nullable=False,
+        index=True,
+        ondelete="CASCADE",
+    )
+
+    idempotency_key: str | None = Field(
+        default=None,
+        max_length=255,
+    )
+
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),
+    )
+
+
+class RunPublic(RunBase):
+    id: uuid.UUID
+    status: str
+    created_at: datetime | None = None
 
 # Shared properties
 class UserBase(SQLModel):

@@ -1,26 +1,29 @@
-from fastapi.testclient import TestClient
-from sqlmodel import Session, select
-
-from app.core.config import settings
-from app.models import User
-
-
-def test_create_user(client: TestClient, db: Session) -> None:
-    r = client.post(
-        f"{settings.API_V1_STR}/private/users/",
+def test_get_run(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    create_response = client.post(
+        "/api/v1/runs",
+        headers=superuser_token_headers,
         json={
-            "email": "pollo@listo.com",
-            "password": "password123",
-            "full_name": "Pollo Listo",
+            "agent_id": "test-agent",
+            "session_id": "test-session",
+            "input": "get run test",
         },
     )
 
-    assert r.status_code == 200
+    assert create_response.status_code == 202
 
-    data = r.json()
+    run_id = create_response.json()["id"]
 
-    user = db.exec(select(User).where(User.id == data["id"])).first()
+    response = client.get(
+        f"/api/v1/runs/{run_id}",
+        headers=superuser_token_headers,
+    )
 
-    assert user
-    assert user.email == "pollo@listo.com"
-    assert user.full_name == "Pollo Listo"
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == run_id
+    assert data["agent_id"] == "test-agent"
