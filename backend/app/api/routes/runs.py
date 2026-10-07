@@ -20,19 +20,26 @@ async def create_run(
     background_tasks: BackgroundTasks,
     session: SessionDep,
     current_user: CurrentUser,
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key"),
+    ] = None,
 ):
-    run = run_service.create_run(
+    run, created = run_service.create_run(
         session=session,
         run_in=body,
         owner_id=current_user.id,
+        idempotency_key=idempotency_key,
     )
 
-    background_tasks.add_task(
-        run_executor.execute_run,
-        run.id,
-    )
+    if created:
+        background_tasks.add_task(
+            run_executor.execute_run,
+            run.id,
+        )
 
     return run
+
 
 
 @router.get(

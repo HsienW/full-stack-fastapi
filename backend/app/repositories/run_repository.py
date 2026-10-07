@@ -11,7 +11,7 @@ def create_run(
     run_in: RunCreate,
     owner_id: uuid.UUID,
     idempotency_key: str | None = None,
-) -> Run:
+) -> tuple[Run, bool]:
     db_run = Run.model_validate(
         run_in,
         update={
@@ -36,13 +36,13 @@ def create_run(
             )
 
             if existing_run:
-                return existing_run
+                return existing_run, False
 
         raise
 
     session.refresh(db_run)
 
-    return db_run
+    return db_run, True
 
 
 def get_run_by_id(

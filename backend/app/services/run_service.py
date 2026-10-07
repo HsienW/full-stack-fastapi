@@ -16,18 +16,16 @@ def create_run(
     run_in: RunCreate,
     owner_id: uuid.UUID,
     idempotency_key: str | None = None,
-) -> Run:
+) -> tuple[Run, bool]:
     if idempotency_key:
-        existing_run = (
-            run_repository.get_run_by_idempotency_key(
-                session=session,
-                owner_id=owner_id,
-                idempotency_key=idempotency_key,
-            )
+        existing_run = run_repository.get_run_by_idempotency_key(
+            session=session,
+            owner_id=owner_id,
+            idempotency_key=idempotency_key,
         )
 
         if existing_run:
-            return existing_run
+            return existing_run, False
 
     return run_repository.create_run(
         session=session,

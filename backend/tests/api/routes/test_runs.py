@@ -212,3 +212,55 @@ def test_cannot_get_another_users_run(
     )
 
     assert response.status_code == 404
+
+
+def test_create_run_with_same_idempotency_key_returns_same_run(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executed_run_ids: list[uuid.UUID] = []
+
+    async def fake_execute_run(run_id: uuid.UUID) -> None:
+        executed_run_ids.append(run_id)
+
+    monkeypatch.setattr(
+        "app.services.run_executor.execute_run",
+        fake_execute_run,
+    )
+
+    payload = {
+        "agent_id": "idempotency-agent",
+        "session_id": "idempotency-session",
+        "input": "idempotency regression test",
+    }
+
+    idempotency_key = f"pytest-{uuid.uuid4()}"
+
+    headers = {
+        **superuser_token_headers,
+        "Idempotency-Key": idempotency_key,
+    }
+
+    first_response = client.post(
+        "/api/v1/runs",
+        headers=headers,
+        json=payload,
+    )
+
+    second_response = client.post(
+        "/api/v1/runs",
+        headers=headers,
+        json=payload,
+    )
+
+    assert first_response.status_code == 202
+    assert second_response.status_code == 202
+
+    first_run = first_response.json()
+    second_run = second_response.json()
+
+    assert first_run["id"] == second_run["id"]
+
+    assert len(executed_run_ids) == 1
+    assert str(executed_run_ids[0]) == first_run["id"]
